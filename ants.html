@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ant Colony Tactics - Commercial Edition V4</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐜</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #10101c;
+            --gold: #e2b340;
+            --green: #2ecc71;
+            --red: #e74c3c;
+            --glass-bg: rgba(16, 16, 28, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #0d0d15; overflow: hidden; 
+            user-select: none; touch-action: none; 
+            font-family: 'Inter', sans-serif; color: white;
+        }
+
+        #phaser-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+        }
+
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        /* UI Overlays */
+        #game-ui { display: none; position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; z-index: 10; }
+        
+        #top-left-hud { position: absolute; top: 20px; left: 20px; width: 300px; pointer-events: auto; display: flex; flex-direction: column; gap: 12px; }
+        
+        .stat-line { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; font-size: 15px; font-weight: 700; }
+        .text-green { color: var(--green); }
+        .text-gold { color: var(--gold); }
+
+        .progress-bg { width: 100%; background: rgba(0,0,0,0.6); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 8px; border: 1px solid var(--glass-border); }
+        #reina-bar { width: 0%; background: linear-gradient(90deg, #b35900, var(--gold)); height: 100%; transition: width 0.3s ease; }
+
+        /* Commands */
+        #command-panel { border-left: 4px solid var(--gold); }
+        .btn-cmd { 
+            background: rgba(255,255,255,0.03); color: white; border: 1px solid var(--glass-border); 
+            padding: 12px; margin: 5px 0; cursor: pointer; width: 100%; font-size: 13px; font-weight: 700;
+            border-radius: 8px; display: flex; justify-content: space-between; align-items: center; 
+            transition: all 0.2s ease;
+        }
+        .btn-cmd:hover:not(:disabled) { background: rgba(255,255,255,0.1); transform: translateX(3px); }
+        .btn-active { background: rgba(226, 179, 64, 0.25) !important; border-color: var(--gold) !important; box-shadow: 0 0 12px rgba(226, 179, 64, 0.3); }
+        .group-count { background: rgba(46, 204, 113, 0.15); color: var(--green); padding: 2px 10px; border-radius: 20px; font-size: 12px; }
+
+        /* Bottom HUD */
+        #shortcut-panel { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 10px; pointer-events: auto; }
+        .btn-icon { 
+            background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--glass-border);
+            color: white; border-radius: 50%; width: 52px; height: 52px; cursor: pointer;
+            font-weight: 800; font-size: 15px; display: flex; justify-content: center; align-items: center;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+        }
+        .btn-icon:hover { transform: translateY(-4px); background: rgba(255,255,255,0.08); }
+        .btn-icon.active { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 20px rgba(226, 179, 64, 0.4); }
+
+        #conquest-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 320px; text-align: center; font-weight: 800; letter-spacing: 0.5px; }
+        
+        /* Menus */
+        .menu-overlay { 
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: radial-gradient(circle at center, #161626 0%, #07070c 100%); 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            z-index: 1000; color: white; text-align: center; backdrop-filter: blur(4px);
+        }
+        .title-main { font-size: 4.5rem; color: var(--gold); text-shadow: 0 0 40px rgba(226, 179, 64, 0.35); margin: 0 0 5px 0; font-weight: 900; letter-spacing: -1px; }
+        .subtitle { color: var(--green); font-size: 1.25rem; font-weight: 700; margin: 0 0 40px 0; letter-spacing: 3px; }
+        
+        .btn-main {
+            background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255,255,255,0.1); color: white;
+            padding: 16px 40px; font-size: 1.15rem; font-weight: 800; border-radius: 30px;
+            margin: 10px; cursor: pointer; width: 320px; transition: all 0.25s ease;
+            text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn-main:hover { background: white; color: black; box-shadow: 0 0 25px rgba(255,255,255,0.4); transform: scale(1.03); }
+        .btn-alt { border-color: var(--gold); color: var(--gold); }
+        .btn-alt:hover { background: var(--gold); color: black; box-shadow: 0 0 25px rgba(226, 179, 64, 0.4); }
+
+        /* Toasts & Settings */
+        #toast-container { position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; z-index: 9999; }
+        .toast { background: rgba(10, 10, 15, 0.9); border-left: 4px solid var(--gold); border-radius: 8px; color: white; padding: 14px 22px; font-size: 14px; font-weight: 600; transform: translateX(130%); transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1); backdrop-filter: blur(8px); box-shadow: 0 5px 20px rgba(0,0,0,0.4); }
+        .toast.show { transform: translateX(0); }
+
+        .settings-btn { position: absolute; top: 20px; right: 20px; z-index: 100; pointer-events: auto; }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 16px 0; font-size: 14px; font-weight: 600; }
+        
+        /* Mobile Safe Area */
+        @media (max-width: 768px) {
+            .title-main { font-size: 2.8rem; }
+            #top-left-hud { width: 240px; left: 15px; top: 15px; }
+            .btn-cmd { font-size: 12px; padding: 10px; }
+            #shortcut-panel { left: 50%; transform: translateX(-50%); bottom: 15px; flex-wrap: wrap; justify-content: center; width: 95%; gap: 8px; }
+            .btn-icon { width: 46px; height: 46px; font-size: 13px; }
+            #conquest-bar { bottom: 125px; width: 240px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="phaser-container"></div>
+
+    <div id="screen-start" class="menu-overlay">
+        <h1 class="title-main">ANT COLONY</h1>
+        <p class="subtitle">TACTICS REMASTERED</p>
+        <button class="btn-main" onclick="GameApp.UI.showScreen('screen-mode')">Iniciar Partida</button>
+        <button class="btn-main btn-alt" onclick="GameApp.UI.showScreen('settings-modal')">Configuración</button>
+    </div>
+
+    <div id="screen-mode" class="menu-overlay" style="display:none;">
+        <h1 class="title-main" style="font-size: 3rem; margin-bottom: 20px;">ELIGE TU MODO</h1>
+        <button class="btn-main" onclick="GameApp.initMode('normal')">🐜 Modo Normal</button>
+        <button class="btn-main btn-alt" onclick="GameApp.initMode('random')">🎲 Modo Aleatorio</button>
+        <button class="btn-main" style="border-color:#444; color:#aaa; margin-top:30px; background:transparent;" onclick="GameApp.UI.showScreen('screen-start')">Volver</button>
+    </div>
+
+    <div id="game-ui">
+        <div id="top-left-hud">
+            <div id="stats-panel" class="glass-panel">
+                <div class="stat-line text-green"><span>🍃 RECURSOS:</span><span id="ui-resources">0</span></div>
+                <div class="stat-line"><span>🪖 TROPAS:</span><span id="ui-pop">10/500</span></div>
+                <hr style="border:0; border-top:1px solid rgba(255,255,255,0.08); margin: 10px 0;">
+                <div class="stat-line text-gold" style="font-size: 12px; font-weight:800;" id="ui-queen-lvl">REINA NIVEL 1</div>
+                <div class="progress-bg"><div id="reina-bar"></div></div>
+            </div>
+
+            <div id="command-panel" class="glass-panel">
+                <div style="font-size: 12px; font-weight: 800; margin-bottom: 12px; color:#888;" id="ui-active-group">GRUPO ACTIVO: 1</div>
+                <button id="btn-explorar" class="btn-cmd btn-active" onclick="GameApp.UI.setGroupMode('explorar')">🚩 EXPLORAR <span id="c-explorar" class="group-count">0</span></button>
+                <button id="btn-recolectar" class="btn-cmd" onclick="GameApp.UI.setGroupMode('recolectar')">🍃 RECOLECTAR <span id="c-recolectar" class="group-count">0</span></button>
+                <button id="btn-atacar" class="btn-cmd" onclick="GameApp.UI.setGroupMode('atacar')">⚔️ ATACAR <span id="c-atacar" class="group-count">0</span></button>
+                <button id="btn-defender" class="btn-cmd" onclick="GameApp.UI.setGroupMode('defender')">🛡️ DEFENDER <span id="c-defender" class="group-count">0</span></button>
+            </div>
+        </div>
+
+        <div id="shortcut-panel">
+            <button class="btn-icon active" id="sh-1" onclick="GameApp.UI.switchGroup(1)">G1</button>
+            <button class="btn-icon" id="sh-2" onclick="GameApp.UI.switchGroup(2)">G2</button>
+            <button class="btn-icon" id="sh-3" onclick="GameApp.UI.switchGroup(3)">G3</button>
+            <button class="btn-icon" id="sh-4" onclick="GameApp.UI.switchGroup(4)">CAM</button>
+            <button class="btn-icon" onclick="GameApp.UI.toggleZoom()" style="background: rgba(226,179,64,0.15); border-color:var(--gold);">🔍</button>
+            <button class="btn-icon" onclick="GameApp.UI.triggerCenterCamera()" style="background: rgba(46,204,113,0.15); border-color:var(--green);">🏠</button>
+        </div>
+
+        <div id="conquest-bar" class="glass-panel text-gold">
+            REINOS CONQUISTADOS: <span id="ui-conquest">0/8</span>
+        </div>
+
+        <div class="settings-btn" style="display:flex; gap:10px;">
+            <button class="btn-icon" id="btn-pause" onclick="GameApp.UI.togglePause()" style="width:42px; height:42px;">⏸️</button>
+            <button class="btn-icon" onclick="GameApp.UI.showScreen('settings-modal')" style="width:42px; height:42px;">⚙️</button>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="menu-overlay" style="display:none; z-index: 2000;">
+        <div class="glass-panel" style="width: 320px; padding: 25px;">
+            <h3 class="text-gold" style="margin:0 0 20px 0; font-weight:900; letter-spacing:1px;">OPCIONES</h3>
+            <div class="toggle-row"><span>Música Ambiental</span><input type="checkbox" id="cfg-music" checked onchange="GameApp.Audio.toggleMusic(this.checked)"></div>
+            <div class="toggle-row"><span>Efectos de Sonido</span><input type="checkbox" id="cfg-sfx" checked onchange="GameApp.Audio.sfxEnabled = this.checked"></div>
+            <div class="toggle-row"><span>Efectos Visuales (VFX)</span><input type="checkbox" id="cfg-vfx" checked onchange="GameApp.Config.vfx = this.checked"></div>
+            <div class="toggle-row"><span>Barras de Salud</span><input type="checkbox" id="cfg-hp" checked onchange="GameApp.Config.showHP = this.checked"></div>
+            <button class="btn-main" style="width:100%; margin:20px 0 0 0; font-size:1rem; padding:12px; border-radius:10px;" onclick="GameApp.UI.closeSettings()">Cerrar</button>
+            <button class="btn-main" style="width:100%; margin:10px 0 0 0; font-size:1rem; padding:12px; border-radius:10px; border-color:var(--red); color:var(--red); background:transparent;" onclick="location.reload()">Salir al Menú</button>
+        </div>
+    </div>
+
+    <div id="screen-gameover" class="menu-overlay" style="display:none; z-index: 1500;">
+        <h1 class="title-main" id="go-title">FIN DE PARTIDA</h1>
+        <p class="subtitle" id="go-desc" style="color:white; max-width:550px; line-height:1.6; font-size:1.1rem; margin-bottom:30px;"></p>
+        <button class="btn-main btn-alt" onclick="location.reload()">Regresar al Menú</button>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        const SPECIES_DATA = {
+            1: { e: '🐛', name: 'GUSANOS', maxPop: 70, hp: 300, p: 25, v: 140, diet: 'all', color: 0x2e5a31 },
+            2: { e: '🐞', name: 'DUNAS', maxPop: 50, hp: 400, p: 35, v: 110, diet: 'all', color: 0x8b0000 },
+            3: { e: '🕷️', name: 'ARAÑAS', maxPop: 20, hp: 1200, p: 70, v: 80, diet: 'meat', color: 0x555555 },
+            4: { e: '🦂', name: 'ESCORPIONES', maxPop: 15, hp: 1600, p: 90, v: 90, diet: 'meat', color: 0xccaa00 },
+            5: { e: '🐢', name: 'TORTUGAS', maxPop: 10, hp: 3500, p: 50, v: 50, diet: 'all', color: 0x006600 },
+            6: { e: '🐝', name: 'ABEJAS', maxPop: 35, hp: 450, p: 40, v: 130, diet: 'all', color: 0xdddd00 },
+            7: { e: '🐜', name: 'TERMITAS', maxPop: 60, hp: 200, p: 15, v: 80, diet: 'all', color: 0xaaaaaa },
+            8: { e: '🦗', name: 'MANTIS', maxPop: 25, hp: 800, p: 80, v: 130, diet: 'all', color: 0x00ff00 }
+        };
+
+        const GameApp = {
+            Config: {
+                MAP_SIZE: 8000,
+                CENTER: 4000,
+                COLORS: [0xe2b340, 0x2ecc71, 0x9b59b6, 0x888888],
+                SPEED_EMPTY: 115,
+                SPEED_LOADED: 55,
+                vfx: true,
+                showHP: true
+            },
+            State: {
+                mode: 'normal',
+                playerSpeciesId: 0,
+                isPaused: true,
+                zoomOut: false,
+                stats: {
+                    recursos: 0,
+                    hormigasVivas: 0,
+                    nivelReina: 1,
+                    reinosKilled: 0,
+                    maxHormigas: 500,
+                    grupoSeleccionado: 1,
+                    modoGrupo: ['explorar', 'explorar', 'explorar']
+                },
+                coloniesInfo: {},
+                gameStarted: false
+            },
+            Engine: null,
+            Scene: null
+        };
+
+        /* ==========================================
+           1. AUDIO ENGINE (Web Audio API)
+           ========================================== */
+        class AudioManager {
+            constructor() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.sfxEnabled = true;
+                this.musicEnabled = true;
+                this.bgmNormal = new Audio('https://kirev.vercel.app/Beneath_the_Thicket.mp3');
+                this.bgmBattle = new Audio('https://kirev.vercel.app/Mandibles_and_Sand.mp3');
+                this.bgmNormal.loop = true; this.bgmNormal.volume = 0.35;
+                this.bgmBattle.loop = true; this.bgmBattle.volume = 0.22;
+            }
+
+            initCtx() { if (this.ctx.state === 'suspended') this.ctx.resume(); }
+
+            playTone(freq, type, duration, vol = 0.1) {
+                if (!this.sfxEnabled) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            }
+
+            playHit() { this.playTone(140 + Math.random()*40, 'sawtooth', 0.08, 0.04); }
+            playKill() { this.playTone(90, 'square', 0.25, 0.08); }
+            playGather() { 
+                this.playTone(580, 'sine', 0.08, 0.04); 
+                setTimeout(() => this.playTone(750, 'sine', 0.12, 0.04), 80); 
+            }
+            playLevelUp() {
+                [440, 554, 659, 880].forEach((f, i) => {
+                    setTimeout(() => this.playTone(f, 'triangle', 0.35, 0.08), i * 120);
+                });
+            }
+            playBtn() { this.playTone(700, 'sine', 0.04, 0.04); }
+
+            toggleMusic(state) {
+                this.musicEnabled = state;
+                if (!state) { this.bgmNormal.pause(); this.bgmBattle.pause(); } 
+                else if (GameApp.State.gameStarted) {
+                    (GameApp.State.mode === 'random' ? this.bgmBattle : this.bgmNormal).play().catch(()=>{});
+                }
+            }
+
+            startMusicForMode(mode) {
+                if (!this.musicEnabled) return;
+                this.bgmNormal.pause(); this.bgmBattle.pause();
+                (mode === 'random' ? this.bgmBattle : this.bgmNormal).play().catch(()=>{});
+            }
+        }
+        GameApp.Audio = new AudioManager();
+
+        /* ==========================================
+           2. INTERFACE MANAGER (UI Control)
+           ========================================== */
+        class UIManager {
+            constructor() {
+                this.lastUpdate = 0;
+                this.setupHotkeys();
+            }
+
+            showScreen(id) {
+                GameApp.Audio.initCtx(); GameApp.Audio.playBtn();
+                document.querySelectorAll('.menu-overlay').forEach(el => el.style.display = 'none');
+                document.getElementById(id).style.display = 'flex';
+            }
+
+            closeSettings() {
+                GameApp.Audio.playBtn();
+                document.getElementById('settings-modal').style.display = 'none';
+                if (!GameApp.State.gameStarted) this.showScreen('screen-start');
+            }
+
+            showToast(msg, isWarning = false) {
+                const c = document.getElementById('toast-container');
+                if (!c) return;
+                const t = document.createElement('div');
+                t.className = 'toast';
+                if(isWarning) t.style.borderLeftColor = 'var(--red)';
+                t.innerText = msg;
+                c.appendChild(t);
+                
+                requestAnimationFrame(() => t.classList.add('show'));
+                GameApp.Audio.playTone(isWarning ? 280 : 550, 'triangle', 0.15, 0.08);
+                
+                setTimeout(() => {
+                    t.classList.remove('show');
+                    setTimeout(() => t.remove(), 300);
+                }, 3000);
+            }
+
+            setupHotkeys() {
+                window.addEventListener('keydown', (e) => {
+                    if (GameApp.State.isPaused && GameApp.State.gameStarted && e.key.toUpperCase() !== 'P') return;
+                    switch(e.key.toUpperCase()) {
+                        case '1': this.switchGroup(1); break;
+                        case '2': this.switchGroup(2); break;
+                        case '3': this.switchGroup(3); break;
+                        case '4': this.switchGroup(4); break;
+                        case 'Z': this.toggleZoom(); break;
+                        case 'X': this.triggerCenterCamera(); break;
+                        case 'P': this.togglePause(); break;
+                    }
+                });
+            }
+
+            triggerCenterCamera() {
+                if (GameApp.Scene && typeof GameApp.Scene.centerCamera === 'function') {
+                    GameApp.Scene.centerCamera();
+                } else {
+                    this.showToast("Cargando mapa...");
+                }
+            }
+
+            switchGroup(id) {
+                if (GameApp.State.isPaused) return;
+                GameApp.Audio.playBtn();
+                GameApp.State.stats.grupoSeleccionado = id;
+                document.querySelectorAll('.btn-icon').forEach(b => b.classList.remove('active'));
+                document.getElementById('sh-'+id).classList.add('active');
+                this.forceUpdateHUD();
+            }
+
+            setGroupMode(mode) {
+                if (GameApp.State.isPaused) return;
+                let activeG = GameApp.State.stats.grupoSeleccionado;
+                if (activeG < 4) {
+                    GameApp.Audio.playBtn();
+                    GameApp.State.stats.modoGrupo[activeG-1] = mode;
+                    this.forceUpdateHUD();
+                }
+            }
+
+            toggleZoom() {
+                if (GameApp.State.isPaused) return;
+                GameApp.Audio.playBtn();
+                GameApp.State.zoomOut = !GameApp.State.zoomOut;
+                if(GameApp.Scene?.cameras?.main) {
+                    GameApp.Scene.cameras.main.zoomTo(GameApp.State.zoomOut ? 0.35 : 1.0, 300, 'Cubic.easeInOut');
+                }
+            }
+
+            togglePause() {
+                if (!GameApp.State.gameStarted || !GameApp.Scene) return;
+                GameApp.Audio.playBtn();
+                GameApp.State.isPaused = !GameApp.State.isPaused;
+                const btn = document.getElementById('btn-pause');
+                if (GameApp.State.isPaused) {
+                    GameApp.Scene.physics.pause();
+                    if(btn) { btn.innerText = "▶️"; btn.classList.add('active'); }
+                    this.showToast("Simulación Pausada");
+                } else {
+                    GameApp.Scene.physics.resume();
+                    if(btn) { btn.innerText = "⏸️"; btn.classList.remove('active'); }
+                    this.showToast("Simulación Reanudada");
+                }
+            }
+
+            updateHUD(time, scene) {
+                if (time - this.lastUpdate < 300) return;
+                this.lastUpdate = time;
+                this.forceUpdateHUD(scene);
+            }
+
+            forceUpdateHUD(scene = GameApp.Scene) {
+                if(!scene || !scene.hormigas) return;
+                const st = GameApp.State.stats;
+                const activeG = st.grupoSeleccionado;
+                
+                let counts = { explorar:0, recolectar:0, atacar:0, defender:0 };
+                scene.hormigas.getChildren().forEach(h => { 
+                    if(h.active && h.data && h.getData('grupo') == activeG) {
+                        counts[st.modoGrupo[activeG-1]]++; 
+                    }
+                });
+
+                document.getElementById('c-explorar').innerText = counts.explorar;
+                document.getElementById('c-recolectar').innerText = counts.recolectar;
+                document.getElementById('c-atacar').innerText = counts.atacar;
+                document.getElementById('c-defender').innerText = counts.defender;
+
+                document.getElementById('ui-resources').innerText = Math.floor(st.recursos);
+                document.getElementById('ui-pop').innerText = `${st.hormigasVivas}/${st.maxHormigas}`;
+                document.getElementById('ui-conquest').innerText = `${st.reinosKilled}/8`;
+
+                let r = st.recursos; 
+                let nLvl = 1, nextReq = 300, prevReq = 0;
+                if (r >= 15000) { nLvl = 5; nextReq = 15000; prevReq = 15000; }
+                else if (r >= 6000) { nLvl = 4; nextReq = 15000; prevReq = 6000; }
+                else if (r >= 2000) { nLvl = 3; nextReq = 6000; prevReq = 2000; }
+                else if (r >= 300) { nLvl = 2; nextReq = 2000; prevReq = 300; }
+                
+                if(nLvl > st.nivelReina) { GameApp.Audio.playLevelUp(); this.showToast(`¡Tu hormiguero base subió al Nivel ${nLvl}!`); }
+                st.nivelReina = nLvl;
+
+                const rBar = document.getElementById('reina-bar');
+                const rLvlText = document.getElementById('ui-queen-lvl');
+                if(nLvl === 5) {
+                    if(rLvlText) rLvlText.innerText = `NIVEL BASE: MÁXIMO (50 tropas/30s)`;
+                    if(rBar) rBar.style.width = '100%';
+                } else {
+                    if(rLvlText) rLvlText.innerText = `NIVEL BASE: ${nLvl} | Siguiente: ${Math.floor(r)}/${nextReq}`;
+                    let pct = ((r - prevReq) / (nextReq - prevReq)) * 100;
+                    if(rBar) rBar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+                }
+
+                const gPanel = document.getElementById('ui-active-group');
+                if(gPanel) gPanel.innerText = "GRUPO ACTIVO: " + (activeG == 4 ? "CÁMARA" : activeG);
+                document.getElementById('command-panel').style.borderLeftColor = "#" + (GameApp.Config.COLORS[activeG-1] || 0x888888).toString(16).padStart(6,'0');
+                
+                document.querySelectorAll('.btn-cmd').forEach(b => b.classList.remove('btn-active'));
+                if (activeG < 4) {
+                    const activeBtn = document.getElementById('btn-' + st.modoGrupo[activeG-1]);
+                    if(activeBtn) activeBtn.classList.add('btn-active');
+                }
+            }
+
+            gameOver(title, desc) {
+                GameApp.State.isPaused = true;
+                if(GameApp.Scene?.physics) GameApp.Scene.physics.pause();
+                document.getElementById('go-title').innerText = title;
+                document.getElementById('go-desc').innerText = desc;
+                this.showScreen('screen-gameover');
+            }
+        }
+        GameApp.UI = new UIManager();
+
+        /* ==========================================
+           3. TEXTURE & ENTITY ENGINE
+           ========================================== */
+        class EntityFactory {
+            static getSpriteKey(id, emoji) {
+                if (id === 7) return 'img_termita';
+                if (id === 2) return 'img_duna';
+                if (id === 6) return 'img_nube';
+                if (id === 3) return 'img_cueva';
+                if (emoji === '🐜') return 'img_ant';
+                return null;
+            }
+
+            static createResource(scene, x, y, isDry, valOverwrite = null) {
+                let r = scene.add.text(x, y, isDry ? "🥩" : "🍃", { fontSize: '28px' }).setOrigin(0.5);
+                if (isDry && valOverwrite === null) r.setTint(0x8b5a2b);
+                scene.physics.add.existing(r);
+                
+                let val = valOverwrite !== null ? valOverwrite : (isDry ? 3 : 25);
+                r.setData({ valor: val, antsAttached: [], maxAnts: Math.ceil(val/10)+1, isMeat: isDry });
+                scene.recursos.add(r);
+                return r;
+            }
+
+            static createHPBar(scene, entity) {
+                if (!GameApp.Config.showHP) return null;
+                let bg = scene.add.rectangle(entity.x, entity.y - 22, 32, 5, 0x000000).setOrigin(0.5).setDepth(5);
+                let fg = scene.add.rectangle(entity.x, entity.y - 22, 30, 3, 0x2ecc71).setOrigin(0.5).setDepth(6);
+                return { bg, fg, update: (x, y, pct) => {
+                    if(!GameApp.Config.showHP || !bg.active || !fg.active) { 
+                        if(bg && bg.active) bg.setVisible(false); 
+                        if(fg && fg.active) fg.setVisible(false); 
+                        return; 
+                    }
+                    bg.setVisible(true); fg.setVisible(true);
+                    bg.setPosition(x, y - 22); fg.setPosition(x, y - 22);
+                    fg.width = 30 * Math.max(0, Math.min(1, pct));
+                    fg.fillColor = pct < 0.3 ? 0xe74c3c : (pct < 0.6 ? 0xe2b340 : 0x2ecc71);
+                }};
+            }
+        }
+        /* ==========================================
+           4. PARTICLE MANAGER (VFX premium)
+           ========================================== */
+        class ParticleManager {
+            constructor(scene) {
+                this.scene = scene;
+            }
+
+            playHit(x, y) {
+                if (!GameApp.Config.vfx || typeof x === 'undefined' || typeof y === 'undefined') return;
+                let sparks = this.scene.add.particles(x, y, 'organic_dirt', {
+                    speed: { min: 50, max: 150 }, angle: { min: 0, max: 360 },
+                    scale: { start: 0.1, end: 0 }, alpha: { start: 1, end: 0 },
+                    lifespan: 200, quantity: 3, blendMode: 'ADD', tint: 0xffaa00
+                });
+                setTimeout(() => sparks.destroy(), 250);
+            }
+
+            playDeath(x, y, colorTint) {
+                if (!GameApp.Config.vfx || typeof x === 'undefined' || typeof y === 'undefined') return;
+                let burst = this.scene.add.particles(x, y, 'organic_dirt', {
+                    speed: { min: 100, max: 300 }, angle: { min: 0, max: 360 },
+                    scale: { start: 0.3, end: 0 }, alpha: { start: 1, end: 0 },
+                    lifespan: 500, quantity: 15, tint: colorTint
+                });
+                setTimeout(() => burst.destroy(), 550);
+            }
+
+            playGather(x, y) {
+                if (!GameApp.Config.vfx || typeof x === 'undefined' || typeof y === 'undefined') return;
+                let sparkles = this.scene.add.particles(x, y, 'biome_glow', {
+                    speed: { min: 20, max: 60 }, angle: { min: 0, max: 360 },
+                    scale: { start: 0.05, end: 0 }, alpha: { start: 0.8, end: 0 },
+                    lifespan: 400, quantity: 5, blendMode: 'ADD', tint: 0x2ecc71
+                });
+                setTimeout(() => sparkles.destroy(), 450);
+            }
+        }
+
+        /* ==========================================
+           5. COMBAT SYSTEM (DeltaTime Fijo)
+           ========================================== */
+        class CombatSystem {
+            static resolveMelee(dt, h, e, scene) {
+                if (!h || !e || !h.active || !e.active || !h.data || !e.data || typeof h.x === 'undefined' || typeof e.x === 'undefined') return;
+
+                let dpsE = e.data.values.poder * 60;
+                let dmgToAnt = dpsE * (dt / 1000);
+                
+                let bonus = GameApp.State.stats.hormigasVivas >= 500 ? 1.3 : 1.0;
+                let dpsH = (h.data.values.poder * bonus) * 60;
+                let dmgToEnemy = dpsH * (dt / 1000);
+
+                h.data.values.hp -= dmgToAnt;
+                e.data.values.hp -= dmgToEnemy;
+
+                if (h.data.values.hpBar) h.data.values.hpBar.update(h.x, h.y, h.data.values.hp / h.data.values.maxHp);
+                if (e.data.values.hpBar) e.data.values.hpBar.update(e.x, e.y, e.data.values.hp / e.data.values.maxHp);
+
+                if (Math.random() < 0.1) {
+                    scene.vfx.playHit(h.x, h.y);
+                    GameApp.Audio.playHit();
+                }
+
+                if (h.data.values.hp <= 0 && h.active) {
+                    if (h.getData('shadow')) h.getData('shadow').destroy();
+                    if (h.getData('hpBar')) { h.getData('hpBar').bg.destroy(); h.getData('hpBar').fg.destroy(); }
+                    scene.vfx.playDeath(h.x, h.y, 0x2ecc71);
+                    h.destroy(); 
+                    GameApp.State.stats.hormigasVivas--; 
+                    GameApp.UI.updateHUD(scene.time.now, scene);
+                    if (GameApp.State.stats.hormigasVivas <= 0) GameApp.UI.gameOver("EXTINCIÓN", "Tu colonia ha sido exterminada. El ecosistema te ha devorado.");
+                }
+
+                if (e.data.values.hp <= 0 && e.active) scene.matarEnemigo(e, true);
+            }
+
+            static resolveInfighting(dt, e1, e2, scene) {
+                if (!e1 || !e2 || !e1.active || !e2.active || !e1.data || !e2.data || typeof e1.x === 'undefined' || typeof e2.x === 'undefined') return;
+                if (e1.getData('tipo') === e2.getData('tipo')) return; 
+
+                let dmg1 = (e2.data.values.poder * 6) * (dt / 1000);
+                let dmg2 = (e1.data.values.poder * 6) * (dt / 1000);
+
+                e1.data.values.hp -= dmg1;
+                e2.data.values.hp -= dmg2;
+
+                if (e1.data.values.hpBar) e1.data.values.hpBar.update(e1.x, e1.y, e1.data.values.hp / e1.data.values.maxHp);
+                if (e2.data.values.hpBar) e2.data.values.hpBar.update(e2.x, e2.y, e2.data.values.hp / e2.data.values.maxHp);
+
+                if (e1.data.values.hp <= 0 && e1.active) scene.matarEnemigo(e1, false);
+                if (e2.data.values.hp <= 0 && e2.active) scene.matarEnemigo(e2, false);
+            }
+        }
+
+        /* ==========================================
+           6. ENEMY AI (IA Autónoma)
+           ========================================== */
+        class EnemyAI {
+            static update(e, scene, validResources, validIntruders) {
+                if (!e || !e.active || typeof e.x === 'undefined') return;
+                let d = e.data.values;
+                if (d.carga > 0) return;
+
+                if (d.tipo == 7 || d.tipo == 9) { 
+                    let t = d.targetRec;
+                    let tAtt = (t && t.active && t.data && typeof t.x !== 'undefined') ? t.getData('antsAttached') : null;
+
+                    if (!t || !t.active || !t.body || !tAtt || tAtt.length >= t.getData('maxAnts') || typeof t.x === 'undefined') {
+                        let best = null, minDist = 999999;
+                        validResources.forEach(r => {
+                            if (!r || !r.active || typeof r.x === 'undefined') return;
+                            let rAtt = r.getData('antsAttached');
+                            if (rAtt && rAtt.length < r.getData('maxAnts')) {
+                                let dist = Phaser.Math.Distance.Between(e.x, e.y, r.x, r.y);
+                                if(r.getData('isMeat')) dist -= 2000;
+                                if (dist < minDist) { minDist = dist; best = r; }
+                            }
+                        });
+                        if (best) e.setData('targetRec', best);
+                    }
+
+                    let tFinal = e.getData('targetRec');
+                    if (tFinal && tFinal.active && tFinal.body && tFinal.data && tFinal.getData('antsAttached') && typeof tFinal.x !== 'undefined') {
+                        scene.physics.moveToObject(e, tFinal, d.vel);
+                        if (Phaser.Math.Distance.Between(e.x, e.y, tFinal.x, tFinal.y) < 25) {
+                            tFinal.getData('antsAttached').push(e); 
+                            e.setData('carga', 10); e.setAlpha(0.6);
+                        }
+                    } else { 
+                        scene.physics.moveTo(e, d.homeX, d.homeY, d.vel * 0.4); 
+                    }
+                } 
+                else if (d.tipo == 1) { 
+                    let close = scene.physics.closest(e, validIntruders);
+                    let st = e.getData('stamina') || 100;
+
+                    if (close && close.active && close.body && typeof close.x !== 'undefined' && Phaser.Math.Distance.Between(e.x, e.y, close.x, close.y) < 300) {
+                        if (st > 0) {
+                            scene.physics.moveToObject(e, close, d.vel);
+                            e.setData('stamina', st - 2); 
+                        } else {
+                            if(e.body) e.body.setVelocity(0); 
+                            e.setData('stamina', st - 1); 
+                            if(st < -50) e.setData('stamina', 0); 
+                        }
+                    } else {
+                        if (st < 100) e.setData('stamina', st + 1); 
+                        if(Phaser.Math.Distance.Between(e.x, e.y, d.homeX, d.homeY) > 50) {
+                            scene.physics.moveTo(e, d.homeX, d.homeY, d.vel * 0.5);
+                        } else { if(e.body) e.body.setVelocity(0); }
+                    }
+                }
+                else if (d.isMission && d.tipo == 2) { 
+                    if (d.targetPos && typeof d.targetPos.x !== 'undefined') {
+                        scene.physics.moveTo(e, d.targetPos.x, d.targetPos.y, d.vel);
+                        
+                        if (!e.getData('hasRobbed') && Phaser.Math.Distance.Between(e.x, e.y, GameApp.Config.CENTER, GameApp.Config.CENTER) < 70) {
+                            e.setData('hasRobbed', true); 
+                            if (e.type === 'Text') e.setText("🐞📦"); else e.setTint(0xffaa00);
+                            GameApp.State.stats.recursos = Math.max(0, GameApp.State.stats.recursos - 200); 
+                            GameApp.UI.forceUpdateHUD(scene);
+                            GameApp.UI.showToast("¡Un escarabajo robó recursos!", true);
+                            e.setData('targetPos', {x: d.homeX, y: d.homeY});
+                        }
+                        if (e.getData('hasRobbed') && Phaser.Math.Distance.Between(e.x, e.y, d.homeX, d.homeY) < 50) {
+                            if (e.data.values.hpBar) { e.data.values.hpBar.bg.destroy(); e.data.values.hpBar.fg.destroy(); }
+                            e.destroy();
+                        }
+                    } else { if(e.body) e.body.setVelocity(0); } 
+                }
+                else if (d.isMission && d.tipo == 6) { 
+                    if (d.targetPos && typeof d.targetPos.x !== 'undefined') {
+                        scene.physics.moveTo(e, d.targetPos.x, d.targetPos.y, d.vel);
+                        if (Phaser.Math.Distance.Between(e.x, e.y, d.targetPos.x, d.targetPos.y) < 100) {
+                            e.setData('isMission', false); 
+                            e.setData('homeX', d.targetPos.x); e.setData('homeY', d.targetPos.y);
+                        }
+                    } else { if(e.body) e.body.setVelocity(0); }
+                }
+                else { 
+                    let target = scene.physics.closest(e, validIntruders);
+                    if (target && target.active && target.body && typeof target.x !== 'undefined' &&
+                        Phaser.Math.Distance.Between(d.homeX, d.homeY, target.x, target.y) < 800 && 
+                        Phaser.Math.Distance.Between(e.x, e.y, target.x, target.y) < 600) {
+                        scene.physics.moveToObject(e, target, d.vel);
+                    } else { 
+                        if (Phaser.Math.Distance.Between(e.x, e.y, d.homeX, d.homeY) > 30) {
+                            scene.physics.moveTo(e, d.homeX, d.homeY, d.vel * 0.5); 
+                        } else { if(e.body) e.body.setVelocity(0); }
+                    }
+                }
+            }
+        }
+
+        /* ==========================================
+           7. MAIN SCENE (Core Game Loop)
+           ========================================== */
+        class MainScene extends Phaser.Scene {
+            constructor() { super({ key: 'MainScene' }); }
+
+            preload() {
+                this.load.spritesheet('img_ant', 'https://kirev.vercel.app/Hormigas.png', { frameWidth: 32, frameHeight: 32 });
+                this.load.spritesheet('img_termita', 'https://kirev.vercel.app/Termitas.png', { frameWidth: 32, frameHeight: 32 });
+                this.load.spritesheet('img_duna', 'https://kirev.vercel.app/Dunas.png', { frameWidth: 32, frameHeight: 32 });
+                this.load.spritesheet('img_nube', 'https://kirev.vercel.app/Nube.png', { frameWidth: 32, frameHeight: 32 });
+                this.load.spritesheet('img_cueva', 'https://kirev.vercel.app/Cueva.png', { frameWidth: 32, frameHeight: 32 });
+            }
+
+            safeCreateAnim(key, texture) {
+                if (this.textures.exists(texture) && !this.anims.exists(key)) {
+                    this.anims.create({ key: key, frames: this.anims.generateFrameNumbers(texture, { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
+                }
+            }
+
+            create() {
+                GameApp.Scene = this;
+                this.vfx = new ParticleManager(this);
+
+                if (GameApp.State.isPaused) this.physics.pause();
+
+                this.safeCreateAnim('walk_ant', 'img_ant');
+                this.safeCreateAnim('walk_termita', 'img_termita');
+                this.safeCreateAnim('walk_duna', 'img_duna');
+                this.safeCreateAnim('walk_nube', 'img_nube');
+                this.safeCreateAnim('walk_cueva', 'img_cueva');
+
+                this.cameras.main.setBounds(0, 0, GameApp.Config.MAP_SIZE, GameApp.Config.MAP_SIZE);
+                this.physics.world.setBounds(0, 0, GameApp.Config.MAP_SIZE, GameApp.Config.MAP_SIZE);
+
+                // Fondo sólido opaco
+                let dirtGen = this.make.graphics({x: 0, y: 0, add: false});
+                dirtGen.fillStyle(0x0d0d15, 1).fillRect(0, 0, 512, 512); 
+                for (let i = 0; i < 4000; i++) {
+                    let px = Phaser.Math.Between(0, 512), py = Phaser.Math.Between(0, 512), size = Phaser.Math.Between(1, 4);
+                    let colors = [0x151520, 0x1a1a25, 0x0a0a10];
+                    dirtGen.fillStyle(colors[Phaser.Math.Between(0, 2)], Phaser.Math.FloatBetween(0.3, 0.9));
+                    Phaser.Math.Between(0, 1) === 0 ? dirtGen.fillCircle(px, py, size) : dirtGen.fillRect(px, py, size * 2, size); 
+                }
+                dirtGen.generateTexture('organic_dirt', 512, 512);
+                this.add.tileSprite(GameApp.Config.CENTER, GameApp.Config.CENTER, GameApp.Config.MAP_SIZE, GameApp.Config.MAP_SIZE, 'organic_dirt');
+
+                let glowGen = this.make.graphics({x: 0, y: 0, add: false});
+                for (let r = 256; r > 0; r -= 8) { glowGen.fillStyle(0xffffff, 0.05); glowGen.fillCircle(256, 256, r); }
+                glowGen.generateTexture('biome_glow', 512, 512);
+
+                const biomas = [
+                    {x:0, y:0, c:0x2e5a31, n:"SELVA"}, {x:4000, y:0, c:0x4d3b2e, n:"MONTAÑA"}, 
+                    {x:0, y:4000, c:0x2e3b4d, n:"PANTANO"}, {x:4000, y:4000, c:0x4d2e2e, n:"VOLCÁN"},
+                    {x:2000, y:2000, c:0x344d34, n:"PRADERA"}
+                ];
+                biomas.forEach(b => {
+                    let glow = this.add.image(b.x + 2000, b.y + 2000, 'biome_glow');
+                    glow.setTint(b.c).setDisplaySize(6000, 6000).setAlpha(0.65); 
+                    this.add.text(b.x + 2000, b.y + 2000, b.n, {fontFamily:'Inter', fontSize:'120px', alpha:0.15, color:'#fff', fontStyle: '900'}).setOrigin(0.5);
+                });
+
+                for(let i=0; i<150; i++) {
+                    let rx = Phaser.Math.Between(100, GameApp.Config.MAP_SIZE-100), ry = Phaser.Math.Between(100, GameApp.Config.MAP_SIZE-100);
+                    if (Phaser.Math.Distance.Between(rx, ry, GameApp.Config.CENTER, GameApp.Config.CENTER) < 500) continue;
+                    let rock = this.add.graphics({ x: rx, y: ry });
+                    rock.fillStyle(0x333344, 1).lineStyle(3, 0x11111a);
+                    let pts = [];
+                    for(let a=0; a<Math.PI*2; a+=0.8) pts.push({x:Math.cos(a)*Phaser.Math.Between(15,45), y:Math.sin(a)*Phaser.Math.Between(15,45)});
+                    rock.fillPoints(pts, true).strokePoints(pts, true);
+                }
+
+                let nidoColor = GameApp.State.mode === 'random' ? SPECIES_DATA[GameApp.State.playerSpeciesId].color : 0x5d4037;
+                this.add.circle(GameApp.Config.CENTER, GameApp.Config.CENTER, 65, nidoColor).setStrokeStyle(4, 0x333333).setDepth(1);
+                this.add.image(GameApp.Config.CENTER, GameApp.Config.CENTER, 'biome_glow').setTint(nidoColor).setDisplaySize(400, 400).setAlpha(0.6).setDepth(0);
+                
+                this.centerCamera();
+
+                this.hormigas = this.physics.add.group();
+                this.recursos = this.physics.add.group();
+                this.enemigos = this.physics.add.group();
+
+                this.marcadoresDestino = [];
+                for(let i=0; i<3; i++) {
+                    let m = this.add.circle(0, 0, 40, GameApp.Config.COLORS[i], 0.3).setStrokeStyle(4, GameApp.Config.COLORS[i]).setVisible(false).setDepth(2);
+                    m.targetColonyId = null;
+                    this.marcadoresDestino.push(m);
+                }
+
+                this.buildWorld();
+
+                let mSize = window.innerWidth < 768 ? 120 : 200;
+                this.minimap = this.cameras.add(window.innerWidth - mSize - 20, 20, mSize, mSize).setZoom(mSize / GameApp.Config.MAP_SIZE).setBackgroundColor(0x0a0a14).setBounds(0,0,GameApp.Config.MAP_SIZE,GameApp.Config.MAP_SIZE);
+                this.minimap.alpha = 0.85;
+                this.rectVision = this.add.graphics({ lineStyle: { width: 60, color: 0xe2b340, alpha: 0.8 } });
+                this.cameras.main.ignore(this.rectVision);
+
+                this.setupInputs();
+                this.setupTimers();
+            }
+
+            centerCamera() { this.cameras.main.pan(GameApp.Config.CENTER, GameApp.Config.CENTER, 500, 'Power2'); }
+
+            buildWorld() {
+                const mapColonies = [
+                    {x: 1500, y: 1500, n: "SELVA", e: "🐛", id: 1, p: 15},
+                    {x: 6500, y: 1500, n: "DUNAS", e: "🐞", id: 2, p: 15},
+                    {x: 1500, y: 6500, n: "CUEVA", e: "🕷️", id: 3, p: 6},
+                    {x: 6500, y: 6500, n: "ROCAS", e: "🦂", id: 4, p: 15},
+                    {x: 4000, y: 1500, n: "MUROS", e: "🐢", id: 5, p: 6},
+                    {x: 4000, y: 6500, n: "NUBE", e: "🐝", id: 6, p: 6},
+                    {x: 1500, y: 4000, n: "TERMITAS", e: "🐜", id: 7, p: 15},
+                    {x: 6500, y: 4000, n: "JUNGLA", e: "🦗", id: 8, p: 15}
+                ];
+
+                mapColonies.forEach(c => {
+                    if (GameApp.State.mode === 'random' && c.id === GameApp.State.playerSpeciesId) {
+                        this.crearColonia(c.x, c.y, "HORMIGAS ORIG.", "🐜", 9, 30); 
+                    } else {
+                        this.crearColonia(c.x, c.y, c.n, c.e, c.id, c.p);
+                    }
+                });
+
+                this.spawnRecursos(250, false);
+                for(let i=0; i<10; i++) this.crearHormigaPlayer((i % 3) + 1);
+            }
+
+            crearColonia(x, y, nombre, emoji, id, pop) {
+                this.add.circle(x, y, 150, 0xffffff, 0.05).setStrokeStyle(2, 0x555);
+                let lbl = this.add.text(x, y - 180, `${nombre} (${pop})`, {fontFamily:'Inter', fontSize: '28px', fill: '#fff', fontStyle: '800'}).setOrigin(0.5);
+                
+                let spriteKey = EntityFactory.getSpriteKey(id, emoji);
+                let mini;
+                if (spriteKey && this.textures.exists(spriteKey)) {
+                    mini = this.add.sprite(x, y, spriteKey, 0).setOrigin(0.5).setDisplaySize(90, 90);
+                    if(id === 7) mini.setTint(0xaaaaaa);
+                } else { mini = this.add.text(x, y, emoji, {fontSize: '90px'}).setOrigin(0.5); }
+                
+                GameApp.State.coloniesInfo[id] = { nombre, vivo: pop, max: id==7?50:(id==6?6:pop), mini, label: lbl, x, y, emoji, killed: false };
+                for(let i=0; i<pop; i++) this.spawnEnemigoUnit(x, y, id, false);
+            }
+
+            spawnEnemigoUnit(x, y, id, isMission = false, tPos = null) {
+                let emoji = GameApp.State.coloniesInfo[id].emoji;
+                let startX = x + Phaser.Math.Between(-120, 120), startY = y + Phaser.Math.Between(-120, 120);
+                
+                let spriteKey = EntityFactory.getSpriteKey(id, emoji);
+                let e;
+
+                if (spriteKey && this.textures.exists(spriteKey)) {
+                    e = this.add.sprite(startX, startY, spriteKey).setOrigin(0.5).setDepth(3);
+                    if (id === 7) e.setTint(0xaaaaaa);
+                    try { e.play('walk_' + spriteKey.split('_')[1]); } catch(err){}
+                } else { e = this.add.text(startX, startY, emoji, { fontSize: '32px' }).setOrigin(0.5).setDepth(3); }
+
+                let hp=150, p=10, v=60;
+                if(id==3){hp=800;p=35;v=40;}else if(id==4){hp=1000;p=45;v=90;}
+                else if(id==5){hp=3000;p=5;v=20;}else if(id==6){hp=300;p=25;v=120;}
+                else if(id==7){hp=60;p=5;v=60;}else if(id==8){hp=500;p=50;v=130;}
+                else if(id==1){hp=150;p=0;v=140;}else if(id==2){hp=250;p=10;v=100;}
+                else if(id==9){hp=200;p=15;v=90;} 
+                
+                let scale = (hp + p + (v*2))/350 + 0.5;
+                if(isMission && !tPos) tPos = {x: GameApp.Config.CENTER, y: GameApp.Config.CENTER}; 
+
+                if (spriteKey) e.setDisplaySize(32 * scale, 32 * scale);
+                else e.setScale(scale).setStroke('#000', 4);
+
+                this.physics.add.existing(e);
+                e.setData({ hp, maxHp: hp, poder: p, vel: v, tipo: id, homeX: x, homeY: y, isMission, targetPos: tPos, carga: 0, targetRec: null, valor: hp, stamina: 100 });
+                e.setData('hpBar', EntityFactory.createHPBar(this, e));
+                this.enemigos.add(e);
+            }
+
+            crearHormigaPlayer(gId) {
+                let st = GameApp.State.stats;
+                if (st.hormigasVivas >= st.maxHormigas) return;
+                
+                let isTank = (st.hormigasVivas > 0 && st.hormigasVivas % 100 === 0);
+                let startX = GameApp.Config.CENTER + Phaser.Math.Between(-40, 40), startY = GameApp.Config.CENTER + Phaser.Math.Between(-40, 40);
+                
+                let shadow = this.add.circle(startX, startY + 8, isTank ? 25 : 14, GameApp.Config.COLORS[gId-1], 0.4).setDepth(2);
+
+                let pId = GameApp.State.playerSpeciesId;
+                let emoji = GameApp.State.mode === 'random' ? SPECIES_DATA[pId].e : '🐜';
+                let spriteKey = EntityFactory.getSpriteKey(pId, emoji);
+                let h;
+
+                if (spriteKey && this.textures.exists(spriteKey)) {
+                    h = this.add.sprite(startX, startY, spriteKey).setOrigin(0.5).setDepth(4);
+                    h.setDisplaySize(isTank ? 48 : 30, isTank ? 48 : 30);
+                    if (pId === 7) h.setTint(0xaaaaaa);
+                    try { h.play('walk_' + spriteKey.split('_')[1]); } catch(err){}
+                } else {
+                    h = this.add.text(startX, startY, emoji, { fontSize: isTank ? '48px' : '30px' }).setOrigin(0.5).setDepth(4);
+                    h.setStroke(Phaser.Display.Color.IntegerToColor(GameApp.Config.COLORS[gId-1]).rgba, 6); 
+                    if(GameApp.State.mode === 'random' && pId === 7) h.setTint(0xaaaaaa); 
+                }
+
+                this.physics.add.existing(h);
+
+                let hpVal = GameApp.State.mode === 'random' ? SPECIES_DATA[pId].hp : (isTank?600:100);
+                let pVal = GameApp.State.mode === 'random' ? SPECIES_DATA[pId].p : (isTank?45:8);
+
+                h.setData({ grupo: gId, carga: 0, hp: hpVal, maxHp: hpVal, poder: pVal, target: null, offset: Phaser.Math.Between(0, 360), shadow: shadow });
+                h.setData('hpBar', EntityFactory.createHPBar(this, h));
+                
+                this.hormigas.add(h); 
+                st.hormigasVivas++; 
+                GameApp.UI.forceUpdateHUD(this);
+            }
+
+            spawnRecursos(cant, isDry) {
+                for(let i=0; i<cant; i++) {
+                    let x = Phaser.Math.Between(500, GameApp.Config.MAP_SIZE-500), y = Phaser.Math.Between(500, GameApp.Config.MAP_SIZE-500);
+                    if (Phaser.Math.Distance.Between(x, y, GameApp.Config.CENTER, GameApp.Config.CENTER) < 600) continue;
+                    EntityFactory.createResource(this, x, y, isDry);
+                }
+            }
+
+            matarEnemigo(e, isPlayerKill) {
+                if(!e || !e.active || typeof e.x === 'undefined') return;
+                let tid = e.getData('tipo');
+                let info = GameApp.State.coloniesInfo[tid];
+                
+                if (e.getData('hpBar')) { e.getData('hpBar').bg.destroy(); e.getData('hpBar').fg.destroy(); }
+                this.vfx.playDeath(e.x, e.y, isPlayerKill ? 0xe74c3c : 0x888888);
+                if (isPlayerKill) GameApp.Audio.playKill();
+
+                if(e.getData('hasRobbed') && isPlayerKill) { 
+                    GameApp.State.stats.recursos += 200; 
+                } else {
+                    let valMeat = e.getData('valor') || 100;
+                    EntityFactory.createResource(this, e.x, e.y, true, valMeat);
+                }
+
+                if(info) {
+                    info.vivo--;
+                    if(info.vivo <= 0 && !info.killed) {
+                        info.mini.setTint(0x444444); info.label.setText("CONQUISTADO 💀").setColor('#888');
+                        info.killed = true; 
+                        GameApp.State.stats.reinosKilled++; 
+                        GameApp.Audio.playTone(400, 'square', 1.0, 0.2);
+                        if(GameApp.State.stats.reinosKilled >= 8) GameApp.UI.gameOver("VICTORIA MILITAR", "¡Dominación total del ecosistema conseguida! Has demostrado ser la especie superior.");
+                    } else if (!info.killed) { info.label.setText(`${info.nombre} (${info.vivo})`); }
+                }
+                e.destroy(); 
+                GameApp.UI.updateHUD(this.time.now, this);
+            }
+
+            setupInputs() {
+                this.input.on('pointerdown', (p) => {
+                    if (GameApp.State.isPaused) return;
+                    let st = GameApp.State.stats;
+                    if (st.grupoSeleccionado < 4 && p.getDuration() < 200) {
+                        let wp = p.positionToCamera(this.cameras.main);
+                        let gIdx = st.grupoSeleccionado - 1;
+                        let m = this.marcadoresDestino[gIdx];
+                        
+                        m.setPosition(wp.x, wp.y).setVisible(true);
+                        m.targetColonyId = null;
+                        
+                        if (st.modoGrupo[gIdx] === 'atacar') {
+                            for(let id in GameApp.State.coloniesInfo) {
+                                let c = GameApp.State.coloniesInfo[id];
+                                if(!c.killed && Phaser.Math.Distance.Between(wp.x, wp.y, c.x, c.y) < 160) {
+                                    m.targetColonyId = id; GameApp.Audio.playBtn(); break;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                this.input.on('pointermove', (p) => { 
+                    if (GameApp.State.isPaused) return;
+                    if (p.isDown) { 
+                        this.cameras.main.scrollX -= (p.x - p.prevPosition.x)/this.cameras.main.zoom; 
+                        this.cameras.main.scrollY -= (p.y - p.prevPosition.y)/this.cameras.main.zoom; 
+                    }
+                });
+            }
+
+            setupTimers() {
+                this.time.addEvent({ delay: 30000, loop: true, callback: () => {
+                    if (GameApp.State.isPaused) return;
+                    let st = GameApp.State.stats;
+                    let queenCost = [0, 0, 20, 80, 200, 500][st.nivelReina] || 0;
+                    st.recursos = Math.max(0, st.recursos - queenCost);
+                    
+                    let n = [0, 2, 5, 10, 25, 50][st.nivelReina]; 
+                    for(let i=0; i<n; i++) this.crearHormigaPlayer((i % 3) + 1);
+                    GameApp.UI.forceUpdateHUD(this);
+                }});
+
+                this.time.addEvent({ delay: 35000, loop: true, callback: () => this.regenColony(9, 30, 3) }); 
+                this.time.addEvent({ delay: 60000, loop: true, callback: () => this.regenColony(7, 50, 5) });
+                this.time.addEvent({ delay: 300000, loop: true, callback: () => this.raidBees() });
+                this.time.addEvent({ delay: 180000, loop: true, callback: () => this.spawnThief() });
+                this.time.addEvent({ delay: 600000, loop: true, callback: () => this.spawnRecursos(100, true) });
+            }
+
+            regenColony(id, maxPop, amt) {
+                if(GameApp.State.isPaused) return;
+                let info = GameApp.State.coloniesInfo[id];
+                if(info && !info.killed && info.vivo < maxPop) { 
+                    for(let i=0; i<amt; i++) { if(info.vivo < maxPop) { this.spawnEnemigoUnit(info.x, info.y, id); info.vivo++; } } 
+                    GameApp.UI.updateHUD(this.time.now, this);
+                }
+            }
+
+            raidBees() {
+                if(GameApp.State.isPaused) return;
+                let info = GameApp.State.coloniesInfo[6];
+                if(info && !info.killed && info.vivo < 6) { 
+                    for(let i=0; i<2; i++) {
+                        if(info.vivo < 6) {
+                            let tx = GameApp.Config.CENTER, ty = GameApp.Config.CENTER;
+                            if(Math.random() > 0.5) {
+                                let keys = Object.keys(GameApp.State.coloniesInfo).filter(k => k != 6 && !GameApp.State.coloniesInfo[k].killed);
+                                if(keys.length > 0) { 
+                                    let rID = keys[Math.floor(Math.random() * keys.length)]; 
+                                    tx = GameApp.State.coloniesInfo[rID].x; ty = GameApp.State.coloniesInfo[rID].y; 
+                                }
+                            }
+                            this.spawnEnemigoUnit(info.x, info.y, 6, true, {x:tx, y:ty}); info.vivo++; 
+                        }
+                    }
+                }
+            }
+
+            spawnThief() {
+                if (GameApp.State.isPaused) return; 
+                let info = GameApp.State.coloniesInfo[2];
+                if (info && !info.killed) this.spawnEnemigoUnit(info.x, info.y, 2, true, {x: GameApp.Config.CENTER, y: GameApp.Config.CENTER}); 
+            }
+
+            update(time, delta) {
+                if (GameApp.State.isPaused) return;
+
+                let vw = window.innerWidth / this.cameras.main.zoom, vh = window.innerHeight / this.cameras.main.zoom;
+                this.rectVision.clear().lineStyle(40, 0xe2b340, 0.8).strokeRect(0, 0, vw, vh).setPosition(this.cameras.main.scrollX, this.cameras.main.scrollY);
+                GameApp.UI.updateHUD(time, this);
+
+                const st = GameApp.State.stats;
+                const pId = GameApp.State.playerSpeciesId;
+                const myVel = GameApp.State.mode === 'random' ? SPECIES_DATA[pId].v : GameApp.Config.SPEED_EMPTY;
+                
+                // 1. COMBATE PRIMERO (Antes de filtrar para movimiento)
+                const separar = (o1, o2) => {
+                    if(!o1 || !o2 || !o1.active || !o2.active || typeof o1.x === 'undefined' || typeof o2.x === 'undefined') return;
+                    if(o1.getData('carga') > 0 || o2.getData('carga') > 0) return;
+                    let dx = o1.x - o2.x, dy = o1.y - o2.y, dist = Math.sqrt(dx*dx + dy*dy);
+                    if(dist > 0 && dist < 30) { o1.x += (dx/dist)*2.5; o1.y += (dy/dist)*2.5; }
+                };
+
+                this.physics.overlap(this.hormigas, this.hormigas, separar);
+                this.physics.overlap(this.enemigos, this.enemigos, separar);
+                this.physics.overlap(this.hormigas, this.enemigos, (h, e) => CombatSystem.resolveMelee(delta, h, e, this));
+                this.physics.overlap(this.enemigos, this.enemigos, (e1, e2) => CombatSystem.resolveInfighting(delta, e1, e2, this));
+
+                // 2. RECOPILAR SUPERVIVIENTES (Sólo los que tienen cuerpo físico y x/y válidos)
+                let validHormigas = this.hormigas.getChildren().filter(h => h && h.active && h.body && typeof h.x !== 'undefined');
+                let validEnemigos = this.enemigos.getChildren().filter(e => e && e.active && e.body && typeof e.x !== 'undefined');
+                let validRecursos = this.recursos.getChildren().filter(r => r && r.active && r.body && typeof r.x !== 'undefined');
+
+                // 3. ACTUALIZAR RECURSOS
+                validRecursos.forEach(res => {
+                    if (!res || !res.active || typeof res.x === 'undefined') return;
+                    
+                    let ants = res.getData('antsAttached');
+                    if (ants && ants.length > 0) {
+                        // Limpiar hormigas muertas (Fantasmas) que cargaban el recurso
+                        ants = ants.filter(a => a && a.active && typeof a.x !== 'undefined');
+                        res.setData('antsAttached', ants);
+                        
+                        if (ants.length > 0) {
+                            let isPlayer = true, tx = GameApp.Config.CENTER, ty = GameApp.Config.CENTER; 
+                            let req = res.getData('maxAnts'), speed = (ants.length >= req-1) ? GameApp.Config.SPEED_LOADED : GameApp.Config.SPEED_LOADED * 0.15;
+                            
+                            let leader = ants[0];
+                            if(leader.getData('tipo')) { tx = leader.getData('homeX'); ty = leader.getData('homeY'); isPlayer = false; } 
+                            
+                            this.physics.moveTo(res, tx, ty, speed); 
+                            ants.forEach(a => { if (a && a.active && typeof a.x !== 'undefined') a.setPosition(res.x, res.y); });
+                            
+                            if (Phaser.Math.Distance.Between(res.x, res.y, tx, ty) < 80) {
+                                if(isPlayer) {
+                                    let val = res.getData('valor');
+                                    st.recursos += val;
+                                    GameApp.Audio.playGather();
+                                    this.vfx.playGather(GameApp.Config.CENTER, GameApp.Config.CENTER);
+                                    if(GameApp.State.mode === 'random' && st.recursos >= 15000) GameApp.UI.gameOver("VICTORIA ECONÓMICA", "¡Has acumulado 15,000 recursos demostrando superioridad global!");
+                                }
+                                ants.forEach(a => { if(a && a.active && a.data) { a.setData('carga', 0); a.setData('target', null); a.setData('targetRec', null); a.setAlpha(1); } });
+                                res.destroy(); GameApp.UI.forceUpdateHUD(this);
+                            }
+                        }
+                    }
+                });
+
+                // 4. ACTUALIZAR JUGADOR
+                validHormigas.forEach(h => {
+                    if (!h || !h.active || typeof h.x === 'undefined') return;
+                    
+                    let gIdx = h.getData('grupo') - 1, modo = st.modoGrupo[gIdx], m = this.marcadoresDestino[gIdx];
+
+                    let shadow = h.getData('shadow');
+                    if (shadow && shadow.active && typeof shadow.x !== 'undefined') { shadow.setPosition(h.x, h.y + 8); shadow.setAlpha(h.getData('carga') > 0 ? 0.2 : 0.4); }
+                    if (h.data.values.hpBar) h.data.values.hpBar.update(h.x, h.y, h.data.values.hp / h.data.values.maxHp);
+
+                    if (h.type === 'Sprite' && h.body) {
+                        const isMoving = Math.abs(h.body.velocity.x) > 10 || Math.abs(h.body.velocity.y) > 10;
+                        if (h.anims && h.anims.currentAnim) {
+                            if (!isMoving && h.anims.isPlaying) { h.stop(); h.setFrame(0); }
+                            else if (isMoving && !h.anims.isPlaying) { h.play(h.anims.currentAnim.key, true); }
+                        }
+                    }
+
+                    if (h.getData('carga') > 0) return;
+
+                    if (modo === 'recolectar') {
+                        let t = h.getData('target');
+                        let tAtt = (t && t.active && typeof t.x !== 'undefined') ? t.getData('antsAttached') : null;
+                        
+                        if (!t || !t.active || !t.body || !tAtt || tAtt.length >= t.getData('maxAnts') || typeof t.x === 'undefined') {
+                            let best = null, minDist = 999999;
+                            let sx = (m && m.visible) ? m.x : h.x, sy = (m && m.visible) ? m.y : h.y;
+
+                            validRecursos.forEach(rec => {
+                                if (!rec || !rec.active || typeof rec.x === 'undefined') return;
+                                let recAtt = rec.getData('antsAttached');
+                                if (recAtt && recAtt.length < rec.getData('maxAnts')) {
+                                    if (GameApp.State.mode === 'random' && SPECIES_DATA[pId].diet === 'meat' && !rec.getData('isMeat')) return;
+                                    let dist = Phaser.Math.Distance.Between(sx, sy, rec.x, rec.y);
+                                    if(rec.getData('isMeat')) dist -= 2000; 
+                                    if (dist < minDist) { minDist = dist; best = rec; }
+                                }
+                            });
+                            if (best) h.setData('target', best);
+                        }
+                        
+                        let tFinal = h.getData('target');
+                        if (tFinal && tFinal.active && typeof tFinal.x !== 'undefined') {
+                            this.physics.moveToObject(h, tFinal, myVel);
+                            if (Phaser.Math.Distance.Between(h.x, h.y, tFinal.x, tFinal.y) < 30) {
+                                tFinal.getData('antsAttached').push(h); h.setData('carga', 10); h.setAlpha(0.6);
+                            }
+                        } else this.physics.moveTo(h, GameApp.Config.CENTER, GameApp.Config.CENTER, myVel/2);
+                    } 
+                    else if (modo === 'defender') {
+                        let intruders = validEnemigos.filter(e => Phaser.Math.Distance.Between(GameApp.Config.CENTER, GameApp.Config.CENTER, e.x, e.y) < 500);
+                        let closest = this.physics.closest(h, intruders);
+                        
+                        if (closest && closest.active && typeof closest.x !== 'undefined' && Phaser.Math.Distance.Between(h.x, h.y, closest.x, closest.y) < 500) {
+                            this.physics.moveToObject(h, closest, myVel + 20);
+                        } else {
+                            let a = (time / 1500) + h.getData('offset');
+                            this.physics.moveTo(h, GameApp.Config.CENTER + Math.cos(a)*180, GameApp.Config.CENTER + Math.sin(a)*180, myVel);
+                        }
+                    } 
+                    else if (modo === 'atacar') {
+                        if (m && m.visible) {
+                            let tx = m.x, ty = m.y;
+                            if (m.targetColonyId && GameApp.State.coloniesInfo[m.targetColonyId] && !GameApp.State.coloniesInfo[m.targetColonyId].killed) {
+                                tx = GameApp.State.coloniesInfo[m.targetColonyId].x; ty = GameApp.State.coloniesInfo[m.targetColonyId].y; m.setPosition(tx, ty); 
+                            }
+                            this.physics.moveTo(h, tx, ty, myVel);
+                        } else { if(h.body) h.body.setVelocity(0); }
+                    } 
+                    else { 
+                        if (m && m.visible) { this.physics.moveToObject(h, m, myVel); } else { if(h.body) h.body.setVelocity(0); }
+                    }
+                });
+
+                // 5. ACTUALIZAR IA ENEMIGA
+                validEnemigos.forEach(e => {
+                    if (!e || !e.active || typeof e.x === 'undefined') return;
+                    
+                    if (e.data.values.hpBar) e.data.values.hpBar.update(e.x, e.y, e.data.values.hp / e.data.values.maxHp);
+                    if (e.type === 'Sprite' && e.body) {
+                        const isMoving = Math.abs(e.body.velocity.x) > 10 || Math.abs(e.body.velocity.y) > 10;
+                        if (e.anims && e.anims.currentAnim) {
+                            if (!isMoving && e.anims.isPlaying) { e.stop(); e.setFrame(0); }
+                            else if (isMoving && !e.anims.isPlaying) { e.play(e.anims.currentAnim.key, true); }
+                        }
+                    }
+                    EnemyAI.update(e, this, validRecursos, [...validHormigas, ...validEnemigos.filter(ent => ent.getData('tipo') !== e.getData('tipo'))]);
+                });
+            }
+        }
+
+        /* ==========================================
+           8. BOOTSTRAP (Lanzamiento)
+           ========================================== */
+        function bootstrapPhaser() {
+            const config = {
+                type: Phaser.AUTO, 
+                scale: { mode: Phaser.Scale.RESIZE, width: '100%', height: '100%' },
+                physics: { default: 'arcade', arcade: { debug: false } },
+                scene: MainScene,
+                transparent: false,
+                backgroundColor: '#0d0d15',
+                parent: 'phaser-container' 
+            };
+            GameApp.Engine = new Phaser.Game(config);
+            GameApp.State.gameStarted = true;
+        }
+
+        // Final Setup Boot
+        GameApp.initMode = function(mode) {
+            GameApp.State.mode = mode;
+            document.getElementById('screen-mode').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'block';
+            
+            if (mode === 'random') {
+                GameApp.State.playerSpeciesId = Math.floor(Math.random() * 8) + 1;
+                GameApp.State.stats.maxHormigas = SPECIES_DATA[GameApp.State.playerSpeciesId].maxPop;
+            } else {
+                GameApp.State.playerSpeciesId = 0;
+                GameApp.State.stats.maxHormigas = 500;
+            }
+            
+            GameApp.Audio.startMusicForMode(mode);
+            GameApp.UI.showToast("Sistema Táctico Inicializado. ¡Protege a la Reina!");
+            
+            if(!GameApp.Engine) {
+                bootstrapPhaser(); 
+            } else {
+                GameApp.State.stats = { recursos: 0, hormigasVivas: 0, nivelReina: 1, reinosKilled: 0, maxHormigas: GameApp.State.stats.maxHormigas, grupoSeleccionado: 1, modoGrupo: ['explorar', 'explorar', 'explorar'] };
+                GameApp.State.coloniesInfo = {};
+                GameApp.State.isPaused = false;
+                let btn = document.getElementById('btn-pause');
+                if(btn) { btn.innerText = "⏸️"; btn.classList.remove('active'); }
+                if(GameApp.Scene) GameApp.Scene.scene.restart();
+            }
+        };
+    </script>
+</body>
+</html>
