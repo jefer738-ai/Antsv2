@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ant Colony Tactics — Sovereign Edition</title>
+    <meta name="description" content="RTS táctico de colonias de hormigas: conquista los ocho reinos del ecosistema. Jugable directamente en el navegador, sin instalación.">
+    <meta name="theme-color" content="#05050a">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐜</text></svg>">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/menus.css">
+    <link rel="stylesheet" href="css/hud.css">
+    <link rel="stylesheet" href="css/responsive.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+</head>
+<body>
+<div id="game-root">
+
+    <div id="phaser-container"></div>
+
+    <div id="boot-loader">
+        <div class="boot-loader__ring" aria-hidden="true"></div>
+        <p class="boot-loader__label">Generando ecosistema…</p>
+    </div>
+
+    <!-- ============ START ============ -->
+    <div id="screen-start" class="screen screen--visible">
+        <div class="brand">
+            <div class="brand__crest" aria-hidden="true">🐜</div>
+            <h1 class="title-main">ANT COLONY TACTICS</h1>
+            <p class="subtitle">Sovereign Edition</p>
+        </div>
+        <div class="screen__actions">
+            <button class="btn-main btn-main--accent" data-action="show-screen" data-arg="screen-mode">Iniciar Partida</button>
+            <button class="btn-main btn-main--ghost" data-action="show-screen" data-arg="screen-settings">⚙️ Configuración</button>
+        </div>
+    </div>
+
+    <!-- ============ MODE SELECT ============ -->
+    <div id="screen-mode" class="screen">
+        <h2 class="title-sub">Elige tu modo</h2>
+        <div class="mode-cards">
+            <button class="mode-card panel" data-action="init-mode" data-arg="normal" aria-label="Modo Normal: comanda una colonia de hormigas clásica contra los ocho reinos del ecosistema.">
+                <span class="mode-card__icon" aria-hidden="true">🐜</span>
+                <span class="mode-card__title">Modo Normal</span>
+                <span class="mode-card__desc">Comanda una colonia de hormigas clásica contra los ocho reinos del ecosistema.</span>
+            </button>
+            <button class="mode-card panel mode-card--alt" data-action="init-mode" data-arg="random" aria-label="Modo Aleatorio: el juego elige tu especie al azar entre las ocho facciones.">
+                <span class="mode-card__icon" aria-hidden="true">🎲</span>
+                <span class="mode-card__title">Modo Aleatorio</span>
+                <span class="mode-card__desc">El juego elige tu especie al azar entre las ocho facciones, cada una con estadísticas y dieta propias.</span>
+            </button>
+        </div>
+        <button class="btn-main btn-main--ghost" data-action="show-screen" data-arg="screen-start">Volver</button>
+    </div>
+
+    <!-- ============ IN-GAME HUD ============ -->
+    <div id="hud" hidden>
+        <header class="hud-topbar panel">
+            <div class="stat stat--green"><span class="stat__icon">🍃</span><span id="ui-resources">0</span></div>
+            <div class="stat"><span class="stat__icon">🪖</span><span id="ui-pop">10/500</span></div>
+
+            <div class="queen-block">
+                <span id="ui-queen-lvl" class="queen-block__label">REINA NIVEL 1</span>
+                <div class="progress"><div id="reina-bar" class="progress__fill"></div></div>
+            </div>
+
+            <div class="stat stat--gold"><span class="stat__icon">👑</span><span id="ui-conquest">0/8</span></div>
+
+            <div class="hud-topbar__actions">
+                <button id="btn-pause" class="icon-btn" data-action="toggle-pause" aria-label="Pausar simulación">⏸️</button>
+                <button id="btn-settings" class="icon-btn" data-action="show-screen" data-arg="screen-settings" aria-label="Configuración">⚙️</button>
+            </div>
+        </header>
+
+        <aside id="command-dock" class="command-dock panel">
+            <div id="ui-active-group" class="command-dock__title">GRUPO ACTIVO: 1</div>
+            <button id="btn-explorar" class="cmd-btn cmd-btn--active" data-action="set-group-mode" data-arg="explorar">🚩 Explorar <span id="c-explorar" class="cmd-btn__count">0</span></button>
+            <button id="btn-recolectar" class="cmd-btn" data-action="set-group-mode" data-arg="recolectar">🍃 Recolectar <span id="c-recolectar" class="cmd-btn__count">0</span></button>
+            <button id="btn-atacar" class="cmd-btn" data-action="set-group-mode" data-arg="atacar">⚔️ Atacar <span id="c-atacar" class="cmd-btn__count">0</span></button>
+            <button id="btn-defender" class="cmd-btn" data-action="set-group-mode" data-arg="defender">🛡️ Defender <span id="c-defender" class="cmd-btn__count">0</span></button>
+        </aside>
+
+        <nav class="group-switch" aria-label="Selección de grupo y cámara">
+            <button id="sh-1" class="chip chip--active" data-action="switch-group" data-arg="1" aria-label="Grupo 1">G1</button>
+            <button id="sh-2" class="chip" data-action="switch-group" data-arg="2" aria-label="Grupo 2">G2</button>
+            <button id="sh-3" class="chip" data-action="switch-group" data-arg="3" aria-label="Grupo 3">G3</button>
+            <button id="sh-4" class="chip" data-action="switch-group" data-arg="4" aria-label="Cámara libre">CAM</button>
+            <button id="btn-zoom" class="chip chip--accent-a" data-action="toggle-zoom" aria-label="Alternar zoom">🔍</button>
+            <button id="btn-center" class="chip chip--accent-b" data-action="center-camera" aria-label="Centrar cámara en el hormiguero">🏠</button>
+        </nav>
+
+        <div class="minimap-frame" aria-hidden="true"></div>
+    </div>
+
+    <!-- ============ SETTINGS ============ -->
+    <div id="screen-settings" class="screen">
+        <div class="settings-card panel">
+            <h3>Opciones</h3>
+            <div class="toggle-row">
+                <span>Música Ambiental</span>
+                <label class="switch"><input type="checkbox" id="cfg-music" checked><span class="switch__track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span>Efectos de Sonido</span>
+                <label class="switch"><input type="checkbox" id="cfg-sfx" checked><span class="switch__track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span>Efectos Visuales (VFX)</span>
+                <label class="switch"><input type="checkbox" id="cfg-vfx" checked><span class="switch__track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span>Barras de Vida</span>
+                <label class="switch"><input type="checkbox" id="cfg-hp" checked><span class="switch__track"></span></label>
+            </div>
+            <button class="btn-main btn-main--accent" style="width:100%; margin-top:var(--space-3);" data-action="close-settings">Cerrar</button>
+            <button class="btn-main btn-main--danger" style="width:100%;" data-action="reload">Salir al Menú</button>
+        </div>
+    </div>
+
+    <!-- ============ GAME OVER ============ -->
+    <div id="screen-gameover" class="screen">
+        <h1 class="title-main" id="go-title" style="font-size: var(--fs-title);">Fin de Partida</h1>
+        <p class="gameover-desc" id="go-desc"></p>
+        <button class="btn-main btn-main--accent" data-action="reload">Regresar al Menú</button>
+    </div>
+
+    <div id="toast-container" aria-live="polite"></div>
+
+</div>
+
+<script src="js/data/species.js"></script>
+<script src="js/data/kingdoms.js"></script>
+<script src="js/core/state.js"></script>
+<script src="js/core/audio.js"></script>
+<script src="js/core/particles.js"></script>
+<script src="js/core/entityFactory.js"></script>
+<script src="js/core/combat.js"></script>
+<script src="js/core/ai.js"></script>
+<script src="js/core/ui.js"></script>
+<script src="js/world/terrain.js"></script>
+<script src="js/world/mainScene.js"></script>
+<script src="js/bootstrap.js"></script>
+</body>
+</html>
