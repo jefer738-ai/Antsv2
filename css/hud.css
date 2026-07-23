@@ -1,0 +1,68 @@
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+#hud[hidden] { display: none; }
+
+/* ---------- Top status bar ---------- */
+.hud-topbar {
+    position: absolute;
+    top: calc(var(--safe-t) + var(--space-2));
+    left: 50%; transform: translateX(-50%);
+    width: min(96vw, 940px);
+    pointer-events: auto;
+    display: flex; align-items: center; flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+}
+
+.stat { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: var(--fs-sm); white-space: nowrap; }
+.stat__icon { font-size: 1.05em; }
+.stat--green { color: var(--clr-green); }
+.stat--gold { color: var(--clr-gold); }
+
+.queen-block { flex: 1 1 150px; min-width: 130px; max-width: 260px; display: flex; flex-direction: column; gap: 5px; }
+.queen-block__label { font-size: var(--fs-xs); font-weight: 800; color: var(--clr-gold); letter-spacing: 0.4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.hud-topbar__actions { display: flex; gap: 8px; margin-left: auto; }
+
+/* ---------- Command dock ---------- */
+.command-dock {
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--safe-b) + 92px);
+    width: min(92vw, 300px);
+    pointer-events: auto;
+    padding: var(--space-3);
+    border-left: 3px solid var(--group-color, var(--clr-gold));
+    transition: border-color 0.25s ease;
+}
+.command-dock__title { font-size: var(--fs-xs); font-weight: 800; margin-bottom: var(--space-2); color: var(--clr-text-dim); letter-spacing: 0.6px; }
+
+/* ---------- Bottom group / camera switch ---------- */
+.group-switch {
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--safe-b) + var(--space-3));
+    display: flex; gap: clamp(6px, 1.6vw, 10px);
+    pointer-events: auto;
+    flex-wrap: wrap; justify-content: center;
+    width: min(96vw, 420px);
+}
+
+/* ---------- Minimap frame (decorative ring around the Phaser minimap camera) ---------- */
+.minimap-frame {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 190px; height: 190px;
+    border-radius: 50%;
+    border: 2px solid var(--clr-border-strong);
+    box-shadow: var(--shadow-panel), 0 0 0 6px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+}
+.minimap-frame::after {
+    content: ''; position: absolute; inset: -2px; border-radius: 50%;
+    box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.6);
+}
+
+@media (max-width: 767px) {
+    .minimap-frame { width: 110px; height: 110px; top: 12px; right: 12px; }
+}

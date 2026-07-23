@@ -1,0 +1,65 @@
+/* Design tokens — the entire visual system reads from these custom properties. */
+:root {
+    /* Core palette */
+    --clr-bg: #05050a;
+    --clr-bg-alt: #0b0c16;
+    --clr-surface: rgba(14, 15, 26, 0.72);
+    --clr-surface-strong: rgba(8, 9, 16, 0.92);
+    --clr-border: rgba(255, 255, 255, 0.09);
+    --clr-border-strong: rgba(255, 255, 255, 0.18);
+    --clr-text: #f5f3ec;
+    --clr-text-dim: #9a97ab;
+
+    --clr-gold: #e6b84a;
+    --clr-gold-soft: #ffe6a3;
+    --clr-green: #34d17c;
+    --clr-red: #ef5350;
+    --clr-blue: #6f8ef0;
+    --clr-violet: #a67bf0;
+
+    --grad-brand: linear-gradient(135deg, var(--clr-gold) 0%, #f0d488 45%, var(--clr-green) 100%);
+
+    /* Radii */
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 26px;
+    --radius-pill: 999px;
+
+    /* Elevation */
+    --shadow-panel: 0 24px 70px rgba(0, 0, 0, 0.55), 0 2px 0 rgba(255, 255, 255, 0.04) inset;
+    --shadow-soft: 0 8px 26px rgba(0, 0, 0, 0.4);
+    --shadow-glow-gold: 0 0 26px rgba(230, 184, 74, 0.35);
+    --shadow-glow-green: 0 0 26px rgba(52, 209, 124, 0.35);
+
+    --blur-panel: 22px;
+
+    /* Type */
+    --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+
+    /* Fluid spacing scale */
+    --space-1: clamp(4px, 0.8vw, 6px);
+    --space-2: clamp(8px, 1.4vw, 12px);
+    --space-3: clamp(12px, 2vw, 18px);
+    --space-4: clamp(16px, 2.8vw, 26px);
+    --space-5: clamp(24px, 4.5vw, 44px);
+
+    /* Fluid type scale */
+    --fs-display: clamp(2.2rem, 6vw + 1rem, 4.6rem);
+    --fs-title: clamp(1.5rem, 3.2vw + 0.6rem, 2.4rem);
+    --fs-lg: clamp(1rem, 1vw + 0.6rem, 1.15rem);
+    --fs-md: clamp(0.82rem, 0.4vw + 0.68rem, 0.95rem);
+    --fs-sm: clamp(0.72rem, 0.3vw + 0.6rem, 0.82rem);
+    --fs-xs: clamp(0.64rem, 0.2vw + 0.56rem, 0.72rem);
+
+    /* Safe area (notches / gesture bars) */
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+
+    --ease-pop: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+
+    --group-color: var(--clr-gold);
+}
